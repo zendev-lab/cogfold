@@ -21,7 +21,7 @@ Root and subtree `AGENTS.md` files should stay short enough to apply on every ta
 Knowledge assets may cite repository standing orders. `AGENTS.md` files outside
 this subtree must not link back into this subtree or require its contents to
 interpret their standing orders; a brief pointer to `notes/` is the only exception.
-Formal documentation (`docs/`, READMEs, `CONTRIBUTING.md`, `SPARK.md`, and
+Formal documentation (`docs/`, READMEs, `CONTRIBUTING.md`, `EVOLUTION.md`, and
 `apps/spark-docs`) must not reference Notes. Notes may link to formal documentation;
 only `AGENTS.md`, Skills, and `notes/README.md` may point to Notes.
 
