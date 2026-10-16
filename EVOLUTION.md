@@ -108,7 +108,7 @@ Invocation 按 Session ID 创建或恢复 Agent，flush 后释放该次 handle �
 - Pi SDK 的 `pi-ai` 保留为模型 transport；LLM abstraction 由 `dsh-llm` 拥有，
   provider 实现通过 `spark-llm-providers` 接入。
 
-见 [Cordis 生命周期决策](docs/decisions/2026-08-20-dsh-cordis-composition.md)。
+见 [Cordis 生命周期决策](.agents/notes/decisions/2026-08-20-dsh-cordis-composition.md)。
 
 ### 理由
 
@@ -133,8 +133,8 @@ Invocation、outbox、retry、human wait 和 SQLite 仍由 daemon 持有。
 跨表面的 ask、gate、slash/action、状态和可展示错误由 `spark-protocol` 定义，
 各界面消费同一语义，传输层只校验和翻译。
 
-见 [产品组合决策](docs/decisions/2026-08-21-daemon-product-composition.md)与
-[daemon-global Channel 决策](docs/decisions/2026-08-21-daemon-global-channel-sessions.md)。
+见 [产品组合决策](.agents/notes/decisions/2026-08-21-daemon-product-composition.md)与
+[daemon-global Channel 决策](.agents/notes/decisions/2026-08-21-daemon-global-channel-sessions.md)。
 
 ### 理由
 
@@ -177,8 +177,8 @@ Fleet 复用 TaskGraph、TaskRun、资源调度器与 Session Registry，worker 
 关联的 git_change worktree，不新增 Fleet store。
 
 精确包清单和依赖方向由 [architecture/packages.json](architecture/packages.json)
-及 [包架构合同](docs/contracts/package-architecture.md)维护。
-见 [Web 与包规范化决策](docs/decisions/2026-08-23-web-replacement-and-package-normalization.md)。
+及 [包架构合同](.agents/notes/contracts/package-architecture.md)维护。
+见 [Web 与包规范化决策](.agents/notes/decisions/2026-08-23-web-replacement-and-package-normalization.md)。
 
 ### 理由
 
@@ -198,7 +198,7 @@ Web 工具需要适配 DSH 的生命周期和 provider 接口，同时保持通�
 策略、daemon/protocol 或专用 provider。Cue 语义由 dsh-cue 拥有，adapter 只处理 host ABI、
 权限和呈现。ACP 在官方 daemon durable admission seam 完备前保持 Spark owner。
 
-见 [DSH Web 决策](docs/decisions/2026-08-25-dsh-tool-web.md)。
+见 [DSH Web 决策](.agents/notes/decisions/2026-08-25-dsh-tool-web.md)。
 
 ### 理由
 
@@ -239,7 +239,7 @@ Pi 产品宿主、pi-spark 发现适配器、pi-tui 与原生 TUI 已退出，`p
 边界推进。完成证据门禁如何区分人工、审查和执行任务，以及如何恢复历史任务中被摘要
 覆盖的原始意图，仍是开放问题。
 
-见 [Web DSH 退役决策](docs/decisions/2026-09-04-retire-spark-web-dsh.md)。
+见 [Web DSH 退役决策](.agents/notes/decisions/2026-09-04-retire-spark-web-dsh.md)。
 
 ### 理由
 
