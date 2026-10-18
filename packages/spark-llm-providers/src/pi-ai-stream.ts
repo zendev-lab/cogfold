@@ -4,6 +4,7 @@
  * dsh-llm StreamChunk is the live wire. These helpers keep the bundled pi-ai
  * provider runners working without a public reverse dsh↔pi bridge.
  */
+import { parseToolCallArguments } from "@earendil-works/pi-ai";
 import type { ToolCallId } from "@deepseek-ai/dsh-llm";
 import {
   createAssistantMessage,
@@ -17,6 +18,7 @@ import type {
   AssistantMessage,
   AssistantMessageEvent,
   Context,
+  JsonObject,
   Message,
   Model,
   StreamOptions,
@@ -24,6 +26,8 @@ import type {
   ToolCall,
   ToolResultMessage,
 } from "@earendil-works/pi-ai";
+
+import { serializeProviderToolCallArguments } from "./provider-json.ts";
 
 const SPARK_ASSISTANT_REPLAY_KEY = "sparkAssistant";
 const SPARK_PI_REQUEST_KEY = "__sparkPiRequest";
@@ -299,7 +303,7 @@ function* chunksForPiEvent(event: AssistantMessageEvent): Iterable<StreamChunk> 
             type: "tool-call",
             id: event.toolCall.id as ToolCallId,
             name: event.toolCall.name,
-            arguments: JSON.stringify(event.toolCall.arguments ?? {}),
+            arguments: serializeProviderToolCallArguments(event.toolCall),
           },
         },
         event,
@@ -398,7 +402,7 @@ function reconstructPiEvent(
           type: "toolCall",
           id: chunk.block.id,
           name: chunk.block.name,
-          arguments: parseArguments(chunk.block.arguments),
+          ...parseToolCallArguments(chunk.block.arguments),
         } as ToolCall,
         partial: assembled,
       };
@@ -517,7 +521,7 @@ function assistantContentToBlocks(content: AssistantMessage["content"]) {
         type: "tool-call" as const,
         id: toolCall.id as ToolCallId,
         name: toolCall.name,
-        arguments: JSON.stringify(toolCall.arguments ?? {}),
+        arguments: serializeProviderToolCallArguments(toolCall),
       };
     }
     return { type: "text" as const, text: "" };
@@ -536,7 +540,7 @@ function dshBlocksToPiContent(
         type: "toolCall",
         id: block.id,
         name: block.name,
-        arguments: parseArguments(block.arguments),
+        ...parseToolCallArguments(block.arguments),
       } as ToolCall);
     }
   }
@@ -560,7 +564,7 @@ function* assistantMessageToChunks(
       yield { type: "block-end", index, block: { type: "reasoning", text } };
     } else if (part.type === "toolCall") {
       const toolCall = part as ToolCall;
-      const args = JSON.stringify(toolCall.arguments ?? {});
+      const args = serializeProviderToolCallArguments(toolCall);
       yield { type: "block-start", index, blockType: "tool-call" };
       yield {
         type: "tool-call-delta",
@@ -754,7 +758,7 @@ function finalizeToolCall(
     type: "toolCall" as const,
     id,
     name,
-    arguments: parseArguments(argumentsJson),
+    ...parseToolCallArguments(argumentsJson),
   };
   if (!existing) return { ...message, content: [...message.content, toolCall] };
   return {
@@ -807,14 +811,6 @@ function unknownToText(value: unknown): string {
   return JSON.stringify(value);
 }
 
-function parseArguments(raw: string): Record<string, unknown> {
-  if (!raw) return {};
-  try {
-    const parsed = JSON.parse(raw) as unknown;
-    return parsed && typeof parsed === "object" && !Array.isArray(parsed)
-      ? (parsed as Record<string, unknown>)
-      : {};
-  } catch {
-    return {};
-  }
+function parseArguments(raw: string): JsonObject {
+  return parseToolCallArguments(raw).arguments;
 }

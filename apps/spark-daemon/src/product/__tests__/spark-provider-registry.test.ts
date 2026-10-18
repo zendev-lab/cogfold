@@ -528,7 +528,8 @@ test("SparkProviderRegistry adapts pi-ai's production Kimi Coding provider", () 
   assert.equal(provider.name, "kimi-coding");
   assert.equal(provider.label, "Kimi For Coding");
   assert.equal(provider.apiKey, "KIMI_API_KEY");
-  assert.equal(provider.baseUrl, "https://api.kimi.com/coding");
+  assert.equal(provider.baseUrl, "https://api.kimi.com/coding/v1");
+  assert.equal(provider.api, "openai-completions");
   const modelIds = provider.models.map((model) => model.id);
   assert.equal(modelIds.length > 0, true);
   assert.equal(new Set(modelIds).size, modelIds.length, "provider model ids must be unique");

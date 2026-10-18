@@ -1,3 +1,4 @@
+import { normalizeContext } from "@earendil-works/pi-ai";
 import type { Api, Model, Provider } from "@earendil-works/pi-ai";
 
 import type {
@@ -33,8 +34,23 @@ export function piAiProviderConfig<TApi extends Api>(
     baseUrl: options.baseUrl ?? provider.baseUrl ?? models[0]?.baseUrl ?? "",
     apiKey: options.authRef,
     api: defaultApi,
-    streamSimple: (model, context, streamOptions) =>
-      provider.streamSimple(model as Model<TApi>, context, streamOptions),
+    streamSimple: (model, context, streamOptions) => {
+      // Spark's routing projection is intentionally narrow. Restore the native
+      // catalog's wire-compatibility metadata before applying caller overrides.
+      const catalogModel = models.find((entry) => entry.id === model.id);
+      const transportModel = {
+        ...catalogModel,
+        ...model,
+        ...(catalogModel?.compat || model.compat
+          ? { compat: { ...catalogModel?.compat, ...model.compat } }
+          : {}),
+      };
+      return provider.streamSimple(
+        transportModel as Model<TApi>,
+        normalizeContext(context),
+        streamOptions,
+      );
+    },
     models: models.map(toSparkModelDefinition),
   };
 }

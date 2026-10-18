@@ -29,6 +29,11 @@ import type {
   SparkDshToolPolicyMetadata,
   SparkInvocationService,
 } from "@zendev-lab/spark-invocation";
+import {
+  normalizeProviderJsonValue,
+  normalizeProviderJsonObject,
+  serializeProviderToolCallArguments,
+} from "@zendev-lab/spark-llm-providers";
 import type {
   AssistantMessage,
   Context as PiContext,
@@ -192,6 +197,15 @@ export async function runSparkDshTurn(input: RunSparkDshTurnInput): Promise<void
   let disposeInvocationService: (() => Promise<void>) | undefined;
   let invocationLabel: symbol | undefined;
   const captured: SparkTurnDriverCapture = {};
+  const completedHostToolCalls = new Set<string>();
+  const hooks: SparkTurnDriverHooks = {
+    ...input.hooks,
+    async dispatchToolCall(toolCall, signal) {
+      const result = await input.hooks.dispatchToolCall(toolCall, signal);
+      completedHostToolCalls.add(toolCall.id);
+      return result;
+    },
+  };
   const cancelAgent = (): void => {
     handle?.agent.cancel({ kind: "user" });
   };
@@ -220,7 +234,7 @@ export async function runSparkDshTurn(input: RunSparkDshTurnInput): Promise<void
         appendSparkSessionMetadata(agent.session, input.sessionMetadata);
       }
       installSparkHangTimeoutPlugin(executionCtx, input.streamIdleTimeoutMs);
-      installSparkConsentPlugin(executionCtx, input.hooks, registeredNames);
+      installSparkConsentPlugin(executionCtx, hooks, registeredNames);
       installSparkHostGuardPlugin(executionCtx, (signal) => {
         if (signal.aborted) {
           throw signal.reason instanceof Error ? signal.reason : new Error("aborted");
@@ -232,7 +246,7 @@ export async function runSparkDshTurn(input: RunSparkDshTurnInput): Promise<void
       const adapter = new SparkTurnLlmAdapter(
         driverProvider,
         input.llm,
-        input.hooks,
+        hooks,
         input.signal,
         executionCtx,
         registeredNames,
@@ -246,12 +260,18 @@ export async function runSparkDshTurn(input: RunSparkDshTurnInput): Promise<void
         options.provider === driverProvider ? adapter.withRequest(options, next) : next(),
       );
       for (const tool of input.tools) {
-        executionCtx.tools.register(sparkHostToolDefinition(tool, input.hooks, concurrency));
+        executionCtx.tools.register(sparkHostToolDefinition(tool, hooks, concurrency));
       }
       for (const plugin of input.agentPlugins ?? []) {
         await executionCtx.plugin(plugin, { session: agent.session });
       }
-      installNativeDshToolResultProjection(executionCtx, input.hooks, registeredNames);
+      installNativeDshToolResultProjection(
+        executionCtx,
+        hooks,
+        completedHostToolCalls,
+        registeredNames,
+        input.signal,
+      );
     };
     const sessionId = SessionId(input.sessionId);
     const persistence = ctx.get("sessionPersistence");
@@ -284,7 +304,7 @@ export async function runSparkDshTurn(input: RunSparkDshTurnInput): Promise<void
       input.signal.throwIfAborted();
     }
     const followups = await Promise.all([
-      ...(input.hooks.takeQueuedUserMessages?.() ?? []).map((content) =>
+      ...(hooks.takeQueuedUserMessages?.() ?? []).map((content) =>
         nativeUserMessage(ctx, content, "user"),
       ),
       nativeUserMessage(ctx, input.followup.content, input.followup.kind),
@@ -293,7 +313,7 @@ export async function runSparkDshTurn(input: RunSparkDshTurnInput): Promise<void
     handle.agent.followup(followups.at(-1)!);
     await handle.agent.whenIdle();
     await handle.agent.ctx.sessions.flush(handle.agent.session);
-    if (persistence) input.hooks.onNativeCommit?.(handle.agent.session.snapshotEvents().length);
+    if (persistence) hooks.onNativeCommit?.(handle.agent.session.snapshotEvents().length);
     if (input.signal.aborted) {
       throw input.signal.reason instanceof Error
         ? input.signal.reason
@@ -670,7 +690,9 @@ function sparkDshToolPolicy(
 function installNativeDshToolResultProjection(
   ctx: Context,
   hooks: SparkTurnDriverHooks,
+  completedHostToolCalls: Set<string>,
   sparkHostTools: ReadonlySet<string>,
+  signal: AbortSignal,
 ): void {
   const callNames = new Map<string, string>();
   ctx.on("session/event", (_session, event) => {
@@ -682,7 +704,12 @@ function installNativeDshToolResultProjection(
     const callId = String(event.data.message.source.callId);
     const name = callNames.get(callId);
     callNames.delete(callId);
-    if (!name || sparkHostTools.has(name)) return;
+    // Host dispatch projects executed tools itself. DSH validation can fail
+    // before dispatch, so skip only calls whose host result was already produced.
+    const alreadyProjected = completedHostToolCalls.delete(callId);
+    if (!name || alreadyProjected) return;
+    // Spark pairs skipped host calls with its canonical cancellation results.
+    if (sparkHostTools.has(name) && signal.aborted) return;
     hooks.onToolResult?.(sparkToolResultFromDsh(event.data.message, name, event.data.meta));
   });
 }
@@ -709,19 +736,21 @@ function sparkToolResultFromDsh(
     toolCallId: String(message.toolCallId),
     toolName,
     content,
-    ...(meta !== undefined ? { details: meta } : parsedJsonDetails(content)),
+    ...(meta !== undefined
+      ? { details: normalizeProviderJsonValue(meta) }
+      : parsedJsonDetails(content)),
     isError: Boolean(message.isError),
     timestamp: Date.now(),
   };
 }
 
 function parsedJsonDetails(content: readonly { type: "text"; text: string }[]): {
-  details?: Record<string, unknown>;
+  details?: ToolResultMessage["details"];
 } {
   if (content.length !== 1) return {};
   try {
     const value: unknown = JSON.parse(content[0]?.text ?? "");
-    return isPlainRecord(value) ? { details: value } : {};
+    return isPlainRecord(value) ? { details: normalizeProviderJsonObject(value) } : {};
   } catch {
     return {};
   }
@@ -749,7 +778,7 @@ function sparkHostToolDefinition(
         type: "toolCall",
         id: String(exec.callId),
         name: tool.name,
-        arguments: isPlainRecord(args) ? args : {},
+        arguments: isPlainRecord(args) ? normalizeProviderJsonObject(args) : {},
       };
       const result = await hooks.dispatchToolCall(toolCall, exec.signal);
       hooks.onToolResult?.(result);
@@ -767,7 +796,7 @@ function* dshChunksFromAssistant(message: AssistantMessage): Iterable<StreamChun
     if (part.type === "toolCall") {
       const toolCall = part as ToolCall;
       const id = ToolCallId(String(toolCall.id));
-      const args = JSON.stringify(toolCall.arguments ?? {});
+      const args = serializeProviderToolCallArguments(toolCall);
       yield { type: "block-start", index, blockType: "tool-call" };
       yield {
         type: "tool-call-delta",
