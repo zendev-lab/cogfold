@@ -1,16 +1,16 @@
-import { anthropicMessagesApi, createProvider, getModels } from "@earendil-works/pi-ai/compat";
+import { openAICompletionsApi, createProvider, getModels } from "@earendil-works/pi-ai/compat";
 
 import { registerSparkAiProvider } from "./spark-provider-adapter.ts";
 import type { ProviderRegistrationAPI } from "./provider-registry.ts";
 
 export const KIMI_CODING_PROVIDER_ID = "kimi-coding";
 export const KIMI_CODING_API_KEY_ENV = "KIMI_API_KEY";
-export const KIMI_CODING_BASE_URL = "https://api.kimi.com/coding";
+export const KIMI_CODING_BASE_URL = "https://api.kimi.com/coding/v1";
 
 /**
  * Register pi-ai's maintained Kimi For Coding catalog in Spark's host-neutral
  * provider registry. Spark owns credential storage; pi-ai owns model ids and
- * the Anthropic-compatible transport.
+ * the OpenAI Chat Completions transport.
  */
 export default function registerKimiCodingProvider(api: ProviderRegistrationAPI): void {
   const provider = createProvider({
@@ -24,7 +24,7 @@ export default function registerKimiCodingProvider(api: ProviderRegistrationAPI)
       },
     },
     models: getModels(KIMI_CODING_PROVIDER_ID),
-    api: anthropicMessagesApi(),
+    api: openAICompletionsApi(),
   });
   registerSparkAiProvider(api, provider, {
     authRef: KIMI_CODING_API_KEY_ENV,

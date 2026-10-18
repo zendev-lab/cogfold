@@ -405,7 +405,7 @@ function streamBaiduOneApiAnthropicWith(
   return startBaiduOneApiStream(
     model,
     () =>
-      transports.anthropicMessages.stream(transportModel, context, {
+      transports.anthropicMessages.stream(transportModel, piAi.normalizeContext(context), {
         ...options,
         ...(apiKey !== undefined ? { apiKey } : {}),
         thinkingEnabled: reasoning !== undefined && reasoning !== "off",
@@ -427,8 +427,15 @@ function streamBaiduOneApiOpenAIResponsesWith(
   const gatewayModel = gatewayModelId(model.id);
   const apiKey = resolveBaiduOneApiKey(options?.apiKey);
   const transportModel = withBaiduOneApiTransportApi(model, "openai-responses");
-  const { systemPrompt, ...transportContext } = context;
-  const instructions = systemPrompt || OPENAI_RESPONSES_FALLBACK_INSTRUCTIONS;
+  const transcript = piAi.normalizeContext(context);
+  const instructions =
+    piAi.getCurrentSystemPrompt(transcript.messages) || OPENAI_RESPONSES_FALLBACK_INSTRUCTIONS;
+  // The gateway accepts instructions only at the top level. Replay system/tool
+  // changes before removing system messages so current tools are not lost.
+  const transportContext = piAi.normalizeContext({
+    messages: transcript.messages.filter((message) => message.role !== "system"),
+    tools: piAi.getCurrentTools(transcript.messages),
+  });
   const createStream = () =>
     startBaiduOneApiStream(
       model,

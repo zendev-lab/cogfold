@@ -5,12 +5,13 @@ import { toolResultToMessageView } from "./view-projection.ts";
 
 describe("tool result view projection", () => {
   it("preserves preview presentation metadata on the tool-result part", () => {
-    const message = {
+    const message: ToolResultMessage = {
       role: "toolResult",
       toolName: "artifact",
       toolCallId: "open-preview",
       content: [{ type: "text", text: "Preview ready" }],
       isError: false,
+      timestamp: 0,
       details: {
         action: "open_preview",
         preview: {
@@ -20,7 +21,7 @@ describe("tool result view projection", () => {
           url: "http://127.0.0.1:4321/preview/token",
         },
       },
-    } as ToolResultMessage;
+    };
 
     const view = toolResultToMessageView(message);
 
@@ -32,13 +33,14 @@ describe("tool result view projection", () => {
   });
 
   it("keeps ordinary tool-result parts free of presentation metadata", () => {
-    const message = {
+    const message: ToolResultMessage = {
       role: "toolResult",
       toolName: "read",
       toolCallId: "read-file",
       content: [{ type: "text", text: "plain output" }],
       isError: false,
-    } as ToolResultMessage;
+      timestamp: 0,
+    };
 
     expect(toolResultToMessageView(message).parts?.[0]?.metadata).toEqual({});
   });

@@ -9,6 +9,10 @@ import {
   type SparkHostContext,
   type ToolConfig,
 } from "@zendev-lab/spark-invocation";
+import {
+  normalizeProviderJsonValue,
+  normalizeProviderJsonObject,
+} from "@zendev-lab/spark-llm-providers";
 import type {
   AssistantMessage,
   Tool,
@@ -45,9 +49,11 @@ export function mergeToolResultDetails(
   originalDetails: unknown,
   compaction: ReturnType<typeof compactToolResultContent>["details"],
   rawRecovery: ToolResultRawRecoveryRecord | undefined,
-): unknown {
-  if (!compaction && !rawRecovery) return originalDetails;
-  return {
+): ToolResultMessage["details"] {
+  if (!compaction && !rawRecovery) {
+    return originalDetails === undefined ? undefined : normalizeProviderJsonValue(originalDetails);
+  }
+  return normalizeProviderJsonValue({
     ...(isPlainRecord(originalDetails) ? originalDetails : {}),
     ...(compaction ? { toolResultCompaction: compaction } : {}),
     ...(rawRecovery
@@ -62,7 +68,7 @@ export function mergeToolResultDetails(
           },
         }
       : {}),
-  };
+  });
 }
 
 export function rawToolResultRecoveryPath(evidenceRef: string): SparkToolResultRawRecoveryPath {
@@ -153,20 +159,24 @@ export function jsonSafe(value: unknown, seen = new WeakSet<object>()): unknown 
 export function normalizeToolCallArguments(
   parameters: unknown,
   args: Readonly<Record<string, unknown>>,
-): Record<string, unknown> {
-  if (!isPlainRecord(parameters) || !isPlainRecord(parameters.properties)) return { ...args };
+): ToolCall["arguments"] {
+  if (!isPlainRecord(parameters) || !isPlainRecord(parameters.properties)) {
+    return normalizeProviderJsonObject(args);
+  }
   const required = new Set(
     Array.isArray(parameters.required)
       ? parameters.required.filter((value): value is string => typeof value === "string")
       : [],
   );
   const properties = parameters.properties;
-  return Object.fromEntries(
-    Object.entries(args).filter(([key, value]) => {
-      if (required.has(key) || !(key in properties)) return true;
-      if (value === undefined || value === null) return false;
-      return typeof value !== "string" || value.trim().length > 0;
-    }),
+  return normalizeProviderJsonObject(
+    Object.fromEntries(
+      Object.entries(args).filter(([key, value]) => {
+        if (required.has(key) || !(key in properties)) return true;
+        if (value === undefined || value === null) return false;
+        return typeof value !== "string" || value.trim().length > 0;
+      }),
+    ),
   );
 }
 
@@ -271,7 +281,7 @@ export function errorToolResult(
     toolCallId: toolCall.id,
     toolName: toolCall.name,
     content: [{ type: "text", text: message }],
-    ...(details ? { details } : {}),
+    ...(details ? { details: normalizeProviderJsonValue(details) } : {}),
     isError: true,
     timestamp: Date.now(),
   };

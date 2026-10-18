@@ -1,3 +1,4 @@
+import { normalizeProviderJsonObject } from "@zendev-lab/spark-llm-providers";
 import type {
   AssistantMessage,
   AssistantMessageEvent,
@@ -128,7 +129,7 @@ export function sparkScriptedToolCall(
     type: "toolCall",
     id,
     name,
-    arguments: arguments_,
+    arguments: normalizeProviderJsonObject(arguments_),
   };
 }
 
