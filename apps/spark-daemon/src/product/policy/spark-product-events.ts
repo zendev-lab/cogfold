@@ -35,11 +35,6 @@ export interface SparkProductEventDeps {
   refreshSparkWidget: (cwd: string, ctx?: SparkToolContext) => Promise<void>;
   turnContextController?: Pick<SparkTurnContextController, "collect" | "reset">;
   sessionHeartbeatController?: SparkSessionHeartbeatController;
-  createAskAutoAnswerResolver?: (
-    ctx: SparkToolContext,
-  ) =>
-    | SparkToolContext["askAutoAnswerResolver"]
-    | Promise<SparkToolContext["askAutoAnswerResolver"]>;
 }
 
 export interface SparkProductEventHandlers {
@@ -67,9 +62,6 @@ export function registerSparkProductEvents(
     const sessionKey = sparkSessionOwnerKey(ctx);
     pendingSparkAgentInstructions.set(sessionKey, { instruction, goalId: options.goalId });
   }
-
-  const syncGoalAskAutoAnswerPolicy = (ctx: SparkToolContext) =>
-    syncSparkGoalAskAutoAnswerPolicy(ctx, deps);
 
   pi.on?.("input", async (_event: unknown, ctx: SparkToolContext) => {
     agentEndReconciliation.reset(ctx);
@@ -219,10 +211,7 @@ async function activePendingInstruction(
   return goal?.status === "active" && goal.goalId === pending.goalId ? pending : undefined;
 }
 
-export async function syncSparkGoalAskAutoAnswerPolicy(
-  ctx: SparkToolContext,
-  _deps: SparkProductEventDeps,
-): Promise<void> {
+async function syncGoalAskAutoAnswerPolicy(ctx: SparkToolContext): Promise<void> {
   const activeGoal = await currentActiveSessionGoal(ctx);
   ctx.askWaitTimeoutMs = activeGoal
     ? SPARK_AUTONOMOUS_ASK_WAIT_TIMEOUT_MS

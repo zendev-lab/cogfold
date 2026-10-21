@@ -161,8 +161,6 @@ export default function registerSparkProductPolicy(pi: SparkProductFacadeApi) {
     refreshSparkWidget,
     turnContextController,
     sessionHeartbeatController,
-    createAskAutoAnswerResolver: (ctx) => (request, askCtx) =>
-      answerAskWithReviewer(request, askCtx, ctx),
   });
 
   const registeredSparkTools = new Map<string, SparkRegisteredToolConfig>();
