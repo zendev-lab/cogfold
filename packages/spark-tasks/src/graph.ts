@@ -99,20 +99,7 @@ export class TaskGraph {
   }
 
   createProject(input: CreateProjectInput): Project {
-    if (!input.title.trim()) throw new Error("project title is required");
-    const now = nowIso();
-    const project: Project = {
-      ref: newRef("proj"),
-      title: input.title,
-      description: input.description,
-      purpose: input.purpose?.trim() || undefined,
-      outputLanguage: input.outputLanguage,
-      kind: input.kind?.trim() || "generic",
-      kindState: input.kindState,
-      roadmap: createDefaultProjectRoadmap(input.title, now),
-      createdAt: now,
-      updatedAt: now,
-    };
+    const project = this.#materializeProject(newRef("proj"), input);
     this.#projects.set(project.ref, project);
     return project;
   }
@@ -134,9 +121,15 @@ export class TaskGraph {
       }
       return existing;
     }
+    const project = normalizeProject(this.#materializeProject(ref, input));
+    this.#projects.set(ref, project);
+    return project;
+  }
+
+  #materializeProject(ref: ProjectRef, input: CreateProjectInput): Project {
     if (!input.title.trim()) throw new Error("project title is required");
     const now = nowIso();
-    const project: Project = {
+    return {
       ref,
       title: input.title,
       description: input.description,
@@ -148,8 +141,6 @@ export class TaskGraph {
       createdAt: now,
       updatedAt: now,
     };
-    this.#projects.set(ref, normalizeProject(project));
-    return this.#projects.get(ref)!;
   }
 
   createTask(input: CreateTaskInput): Task {

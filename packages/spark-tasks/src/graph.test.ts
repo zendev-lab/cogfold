@@ -4,6 +4,53 @@ import { newRef } from "@zendev-lab/spark-invocation";
 import { TaskGraph } from "./graph.ts";
 
 describe("TaskGraph creation and recovery", () => {
+  it.each(["create", "recover"])("%s validates and initializes a project", (mode) => {
+    const graph = new TaskGraph();
+    const input = {
+      title: "  Recovery  ",
+      description: "Keep the checkpoint",
+      purpose: "  Resume work  ",
+      kind: "  ",
+      kindState: { checkpoint: 1 },
+      outputLanguage: "zh" as const,
+    };
+    const project =
+      mode === "create" ? graph.createProject(input) : graph.ensureProject(newRef("proj"), input);
+    expect(project).toMatchObject({
+      ...input,
+      purpose: "Resume work",
+      kind: "generic",
+      roadmap: { title: "Recovery", status: "active", items: [] },
+    });
+    expect(graph.getProject(project.ref)).toEqual(project);
+
+    const before = structuredClone(graph.snapshot());
+    expect(() =>
+      mode === "create"
+        ? graph.createProject({ ...input, title: " " })
+        : graph.ensureProject(newRef("proj"), { ...input, title: " " }),
+    ).toThrow("project title is required");
+    expect(graph.snapshot()).toEqual(before);
+  });
+
+  it("retains project roadmap progress on recovery and refuses conflicting identities", () => {
+    const graph = new TaskGraph();
+    const ref = newRef("proj");
+    const input = { title: "Recovery", description: "Checkpoint", kind: "  workflow  " };
+    const project = graph.ensureProject(ref, input);
+    graph.replaceProjectRoadmap(ref, { ...project.roadmap, status: "done" });
+    graph.updateProject(ref, { purpose: "Reviewed purpose", outputLanguage: "en" });
+    const before = structuredClone(graph.snapshot());
+
+    expect(graph.ensureProject(ref, input)).toEqual(before.projects[0]);
+    for (const key of ["title", "description", "kind"]) {
+      expect(() => graph.ensureProject(ref, { ...input, [key]: "Different" })).toThrow(
+        "already bound to different content",
+      );
+    }
+    expect(graph.snapshot()).toEqual(before);
+  });
+
   it("retains recovery progress and keeps fixed names distinct from ordinary creation", () => {
     const graph = new TaskGraph();
     const project = graph.createProject({ title: "Recovery", description: "Recovery" });
@@ -24,7 +71,7 @@ describe("TaskGraph creation and recovery", () => {
     const created = graph.createTask(input);
     expect(created.name).not.toBe("fixed");
 
-    const before = graph.snapshot();
+    const before = structuredClone(graph.snapshot());
     expect(graph.ensureTask(ref, input)).toMatchObject({
       status: "running",
       claim: { claimedBy: "session:owner" },
