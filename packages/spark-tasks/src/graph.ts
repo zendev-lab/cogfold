@@ -160,41 +160,13 @@ export class TaskGraph {
       input.name?.trim() || taskNameFromTitle(input.title),
       new Set(this.tasks(input.projectRef).map((task) => task.name)),
     );
-    const supersededBy = normalizeTaskRefs(input.supersededBy);
-    const requestedStatus = input.status ?? (input.kind === "interaction" ? "running" : "ready");
-    const status =
-      supersededBy.length > 0 && requestedStatus !== "done" ? "cancelled" : requestedStatus;
-    const plan = normalizeTaskPlan(input.plan, input.description, input.title);
+    const task = this.#materializeTask(newRef("task"), input, name, now);
     if (input.todos?.length) {
-      plan.items = taskPlanItemsFromTodos(
+      task.plan.items = taskPlanItemsFromTodos(
         normalizeTodos(materializeTodos("task:pending" as TaskRef, input.todos, now)),
       );
-      plan["steps"] = plan.items.map((item) => item.title);
+      task.plan["steps"] = task.plan.items.map((item) => item.title);
     }
-    const task: Task = {
-      ref: newRef("task"),
-      projectRef: input.projectRef,
-      name,
-      title: input.title,
-      description: input.description,
-      kind: input.kind ?? "generic",
-      status,
-      roleRef: normalizeRoleRef(input.roleRef),
-      executionPolicy: normalizeTaskExecutionPolicy(input.executionPolicy, input.kind ?? "generic"),
-      finishedBy: input.finishedBy,
-      cancellation:
-        status === "cancelled"
-          ? (normalizeTaskCancellation(input.cancellation, now) ?? { at: now })
-          : undefined,
-      supersededBy,
-      claim: isUnfinishedTaskStatus(status) ? input.claim : undefined,
-      artifactRefs: normalizeArtifactRefs(input.artifactRefs),
-      inputEvidenceRefs: input.inputEvidenceRefs ?? [],
-      outputEvidenceRefs: [],
-      plan,
-      createdAt: now,
-      updatedAt: now,
-    };
     assertTaskWorktreeTargetArtifacts(task.executionPolicy, task.artifactRefs);
     this.#tasks.set(task.ref, task);
     return task;
@@ -220,11 +192,18 @@ export class TaskGraph {
     const now = nowIso();
     const name = input.name?.trim() || taskNameFromTitle(input.title);
     assertUniqueTaskName(this.tasks(input.projectRef), name);
+    const task = this.#materializeTask(ref, input, name, now);
+    assertTaskWorktreeTargetArtifacts(task.executionPolicy, task.artifactRefs);
+    this.#tasks.set(ref, task);
+    return task;
+  }
+
+  #materializeTask(ref: TaskRef, input: CreateTaskInput, name: string, now: string) {
     const supersededBy = normalizeTaskRefs(input.supersededBy);
     const requestedStatus = input.status ?? (input.kind === "interaction" ? "running" : "ready");
     const status =
       supersededBy.length > 0 && requestedStatus !== "done" ? "cancelled" : requestedStatus;
-    const task: Task = {
+    return {
       ref,
       projectRef: input.projectRef,
       name,
@@ -247,10 +226,7 @@ export class TaskGraph {
       plan: normalizeTaskPlan(input.plan, input.description, input.title),
       createdAt: now,
       updatedAt: now,
-    };
-    assertTaskWorktreeTargetArtifacts(task.executionPolicy, task.artifactRefs);
-    this.#tasks.set(ref, task);
-    return task;
+    } satisfies Task;
   }
 
   acceptProposal(proposal: TaskProposal): Task {
