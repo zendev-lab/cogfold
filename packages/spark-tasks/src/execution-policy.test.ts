@@ -81,7 +81,7 @@ describe("Task worktree execution authorization", () => {
         },
       }),
     };
-    const before = graph.snapshot();
+    const before = structuredClone(graph.snapshot());
     expect(() =>
       mode === "create" ? graph.createTask(input) : graph.ensureTask(newRef("task"), input),
     ).toThrow("artifact:unlinked must be linked in artifactRefs");
