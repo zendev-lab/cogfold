@@ -1,10 +1,6 @@
 import { createHash } from "node:crypto";
 import { defaultTaskGraphStore } from "@zendev-lab/spark-tasks";
-import {
-  ensureSparkStateForActiveWorkspace,
-  handleSparkInput,
-  injectSparkHints,
-} from "./spark-active-injection.ts";
+import { ensureSparkStateForActiveWorkspace, injectSparkHints } from "./spark-active-injection.ts";
 import {
   cleanupOwnedBackgroundSubroles,
   resumeOwnedBackgroundSubroles,
@@ -37,7 +33,6 @@ interface SparkProductEventApi extends SparkModeMessageApi {
 
 export interface SparkProductEventDeps {
   refreshSparkWidget: (cwd: string, ctx?: SparkToolContext) => Promise<void>;
-  ensureWorkflowRunManager: (cwd: string, ctx: SparkToolContext) => Promise<void>;
   turnContextController?: Pick<SparkTurnContextController, "collect" | "reset">;
   sessionHeartbeatController?: SparkSessionHeartbeatController;
   createAskAutoAnswerResolver?: (
@@ -76,16 +71,9 @@ export function registerSparkProductEvents(
   const syncGoalAskAutoAnswerPolicy = (ctx: SparkToolContext) =>
     syncSparkGoalAskAutoAnswerPolicy(ctx, deps);
 
-  pi.on?.("input", (event: unknown, ctx: SparkToolContext) => {
+  pi.on?.("input", async (_event: unknown, ctx: SparkToolContext) => {
     agentEndReconciliation.reset(ctx);
-    return handleSparkInput(event, ctx, {
-      piApi: pi,
-      deps: {
-        queueSparkAgentInstruction,
-        refreshSparkWidget: deps.refreshSparkWidget,
-        ensureWorkflowRunManager: deps.ensureWorkflowRunManager,
-      },
-    });
+    return { action: "continue" };
   });
   pi.on?.("before_role_start", async (event: unknown, ctx: SparkToolContext) =>
     injectSparkHints(event, ctx),
