@@ -243,6 +243,10 @@ test("generator sees only development feedback and public traces, while final ca
     hypothesis: "h",
     strategy: "s",
   });
+  assert.deepEqual(parseStrategy('```json\n{"hypothesis":"h","strategy":"s"}\n```', 1), {
+    hypothesis: "h",
+    strategy: "s",
+  });
   for (const value of [
     '{"hypothesis":"h","strategy":"long"}',
     '{"hypothesis":"h","strategy":[]}',

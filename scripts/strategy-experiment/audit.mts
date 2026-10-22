@@ -276,7 +276,7 @@ export async function auditExperiment(output: string) {
   requireEqual(completed.candidateIds, candidateIds, "completed candidate inventory");
   requireEqual(
     await listTrialDirectories(output),
-    [...expectedIds].sort(),
+    [...expectedIds].sort((left, right) => left.localeCompare(right)),
     "exact trial directories",
   );
   const trials = await Promise.all(

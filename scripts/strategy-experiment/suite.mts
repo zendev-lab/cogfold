@@ -96,12 +96,16 @@ export async function loadSuite(): Promise<Suite> {
   return { ...tasks, cases, protocol, digest: digest(JSON.stringify(contents)) };
 }
 
-export function git(...args: string[]): string {
-  return execFileSync("git", ["-C", repositoryRoot, ...args], {
+function gitOutput(args: string[], maxBuffer = 64 * 1024 * 1024): string {
+  return execFileSync("/usr/bin/git", ["-C", repositoryRoot, ...args], {
     encoding: "utf8",
-    maxBuffer: 64 * 1024 * 1024,
+    maxBuffer,
     env: Object.fromEntries(Object.entries(process.env).filter(([key]) => !key.startsWith("GIT_"))),
-  }).trimEnd();
+  });
+}
+
+export function git(...args: string[]): string {
+  return gitOutput(args).trimEnd();
 }
 
 /** The task snapshot has no Git history, tests, runtime state, or experiment files. */
@@ -142,14 +146,7 @@ export async function materializeSources(root: string, suite: Suite, fixed = fal
   const entries: Array<[string, string]> = [];
   for (const path of files) {
     // Git object reads, not the implementation worktree, own benchmark source identity.
-    let content = execFileSync(
-      "git",
-      ["-C", repositoryRoot, "show", `${suite.baseCommit}:${path}`],
-      {
-        encoding: "utf8",
-        maxBuffer: 8 * 1024 * 1024,
-      },
-    );
+    let content = gitOutput(["show", `${suite.baseCommit}:${path}`], 8 * 1024 * 1024);
     if (!fixed)
       for (const task of suite.tasks.filter((entry) => entry.path === path))
         content = applyRegressions(content, task);

@@ -288,12 +288,8 @@ export function developmentFeedback(task: Task, trial: Trial, publicTrace: strin
 }
 
 export function parseStrategy(text: string, maxChars: number) {
-  const parsed: unknown = JSON.parse(
-    text
-      .trim()
-      .replace(/^```(?:json)?\s*/u, "")
-      .replace(/\s*```$/u, ""),
-  );
+  const body = text.trim().replace(/^```(?:json)?\s*/u, "");
+  const parsed: unknown = JSON.parse(body.endsWith("```") ? body.slice(0, -3).trimEnd() : body);
   if (
     !parsed ||
     typeof parsed !== "object" ||
@@ -500,5 +496,5 @@ export async function listTrialDirectories(output: string): Promise<string[]> {
       if (!entry.isDirectory()) throw new Error("Unexpected entry in trial inventory");
       return entry.name;
     })
-    .sort();
+    .sort((left, right) => left.localeCompare(right));
 }
