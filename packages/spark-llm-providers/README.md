@@ -145,8 +145,8 @@ billing is distinct from these API cost estimates.
 ## Kimi For Coding provider
 
 `@zendev-lab/spark-llm-providers/kimi-coding-provider` is the thin Spark adapter over
-pi-ai's maintained Kimi For Coding catalog. It uses the Anthropic-compatible
-`https://api.kimi.com/coding` endpoint. Authentication is an API key stored
+pi-ai's maintained Kimi For Coding catalog. It uses the OpenAI Chat Completions-compatible
+`https://api.kimi.com/coding/v1` endpoint. Authentication is an API key stored
 through Spark's credential store or `KIMI_API_KEY`. Default `enabledModels`
 includes `kimi-coding/*`.
 

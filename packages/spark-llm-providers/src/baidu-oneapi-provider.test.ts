@@ -1,3 +1,4 @@
+import { Type } from "typebox";
 import type {
   Api,
   AssistantMessage,
@@ -211,8 +212,14 @@ test("OpenAI SDK log suppression spans lazy setup and concurrent streams", async
   const model = testModel("gpt-5.6-sol");
 
   try {
-    const firstStream = silenced.streamSimple(model, { messages: [], tools: [] });
-    const secondStream = silenced.streamSimple(model, { messages: [], tools: [] });
+    const firstStream = silenced.streamSimple(
+      model,
+      piAi.normalizeContext({ messages: [], tools: [] }),
+    );
+    const secondStream = silenced.streamSimple(
+      model,
+      piAi.normalizeContext({ messages: [], tools: [] }),
+    );
     expect(process.env.OPENAI_LOG).toBe("off");
 
     first.resolve(terminalMessage(model));
@@ -225,7 +232,10 @@ test("OpenAI SDK log suppression spans lazy setup and concurrent streams", async
     await Promise.resolve();
     expect(process.env.OPENAI_LOG).toBe("debug");
 
-    const thirdStream = silenced.streamSimple(model, { messages: [], tools: [] });
+    const thirdStream = silenced.streamSimple(
+      model,
+      piAi.normalizeContext({ messages: [], tools: [] }),
+    );
     process.env.OPENAI_LOG = "info";
     third.resolve(terminalMessage(model));
     await thirdStream.result();
@@ -297,7 +307,9 @@ test("Baidu Responses uses one top-level instructions value and leaves caller ov
   );
 
   expect(contexts).toHaveLength(3);
-  expect(contexts.every((context) => context.systemPrompt === undefined)).toBe(true);
+  expect(contexts.every((context) => piAi.getCurrentSystemPrompt(context.messages) === "")).toBe(
+    true,
+  );
   expect(payloads[0]).toMatchObject({ instructions: systemPrompt, model: "gpt-5.6-sol" });
   expect(JSON.stringify(payloads[0]).split(systemPrompt)).toHaveLength(2);
   expect(JSON.stringify((payloads[0] as { input: unknown }).input)).not.toContain(systemPrompt);
@@ -315,7 +327,7 @@ test("Baidu Anthropic keeps the caller system block while remapping the gateway 
         capturedPayload = await options?.onPayload?.(
           {
             model: model.id,
-            system: [{ type: "text", text: context.systemPrompt }],
+            system: [{ type: "text", text: piAi.getCurrentSystemPrompt(context.messages) }],
             messages: [],
           },
           model,
@@ -339,7 +351,7 @@ test("Baidu Anthropic keeps the caller system block while remapping the gateway 
     }),
   );
 
-  expect(capturedContext?.systemPrompt).toBe(systemPrompt);
+  expect(piAi.getCurrentSystemPrompt(capturedContext?.messages ?? [])).toBe(systemPrompt);
   expect(capturedPayload).toMatchObject({
     model: "Opus 5",
     system: [{ type: "text", text: systemPrompt }],
@@ -556,3 +568,44 @@ test.each(["gpt-6-astra-尝鲜", "gpt-7-future"])(
     expect(seen).toMatchObject({ model: id });
   },
 );
+
+test("Baidu transports preserve transcript tool updates and route instructions once", async () => {
+  const tool = { name: "echo", description: "Echo", parameters: Type.Object({}) };
+  const messages: Context["messages"] = [
+    { role: "user", content: "hello", timestamp: 1 },
+    { role: "system", content: "Follow-up rules", toolsAdded: [tool], timestamp: 2 },
+  ];
+  let captured: piAi.TranscriptContext | undefined;
+  let instructions: unknown;
+  const transport: ProviderStreams = {
+    stream: (model, context) => {
+      captured = context;
+      return terminalStream(model);
+    },
+    streamSimple: (model, context, options) => {
+      captured = context;
+      return terminalStream(model, async () => {
+        instructions = await options?.onPayload?.({}, model);
+      });
+    },
+  };
+  const adapter = createBaiduOneApiProviderAdapter({
+    anthropicMessages: transport,
+    openAIResponses: transport,
+  });
+  const context = { systemPrompt: "Base rules", messages };
+  await consume(adapter.streamAnthropic(testModel("claude-opus-5"), context));
+  expect(piAi.getCurrentSystemPrompt(captured?.messages ?? [])).toBe(
+    "Base rules\n\nFollow-up rules",
+  );
+  expect(piAi.getCurrentTools(captured?.messages ?? []).map((entry) => entry.name)).toEqual([
+    "echo",
+  ]);
+  await consume(adapter.streamOpenAIResponses(testModel("gpt-5.6-sol"), context));
+  expect(instructions).toMatchObject({ instructions: "Base rules\n\nFollow-up rules" });
+  expect(piAi.getCurrentSystemPrompt(captured?.messages ?? [])).toBe("");
+  expect(piAi.getCurrentTools(captured?.messages ?? []).map((entry) => entry.name)).toEqual([
+    "echo",
+  ]);
+  expect(messages).toHaveLength(2);
+});

@@ -1,3 +1,4 @@
+import { getModels } from "@earendil-works/pi-ai/compat";
 import assert from "node:assert/strict";
 import { mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
 import { tmpdir } from "node:os";
@@ -165,10 +166,18 @@ test("legacy provider config still exposes the bundled OpenAI Codex catalog", as
     assert.equal(snapshot.enabledModelIds.includes("openai-codex/gpt-6-astra"), true);
     assert.equal(snapshot.enabledModelIds.includes("openai-codex/gpt-5.3-codex-spark"), true);
     assert.equal(codex?.name, "OpenAI Codex");
-    assert.equal(codex?.modelCount, 8);
+    assert.equal(codex?.modelCount, getModels("openai-codex").length);
     assert.equal(codex?.auth.kind, "oauth");
     assert.equal(codex?.auth.configured, false);
-    assert.equal(snapshot.models.filter((model) => model.providerId === "openai-codex").length, 8);
+    assert.deepEqual(
+      snapshot.models
+        .filter((model) => model.providerId === "openai-codex")
+        .map((model) => model.modelId)
+        .sort(),
+      getModels("openai-codex")
+        .map((model) => model.id)
+        .sort(),
+    );
     assert.equal(
       snapshot.models.some(
         (model) => model.providerId === "openai-codex" && model.modelId === "gpt-5.3-codex-spark",

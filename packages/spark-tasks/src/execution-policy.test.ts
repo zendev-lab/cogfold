@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import type { ArtifactRef } from "@zendev-lab/spark-invocation";
+import { newRef, type ArtifactRef } from "@zendev-lab/spark-invocation";
 import { TaskGraph } from "./graph.ts";
 import { normalizeTaskExecutionPolicy } from "./internal.ts";
 
@@ -63,26 +63,28 @@ describe("Task worktree execution authorization", () => {
     ).toThrow("primaryArtifactRef must be writable");
   });
 
-  it("rejects authorization refs that are not linked to the Task", () => {
+  it.each(["create", "recover"])("%s rejects authorization refs not linked to the Task", (mode) => {
     const graph = new TaskGraph();
     const project = graph.createProject({ title: "Fleet", description: "Fleet policy" });
-
-    expect(() =>
-      graph.createTask({
-        projectRef: project.ref,
-        title: "Implement",
-        description: "Implement the change",
-        artifactRefs: ["artifact:primary" as ArtifactRef],
-        executionPolicy: normalizeTaskExecutionPolicy({
-          worktreeTarget: {
-            primaryArtifactRef: "artifact:primary" as ArtifactRef,
-            writableArtifactRefs: [
-              "artifact:primary" as ArtifactRef,
-              "artifact:unlinked" as ArtifactRef,
-            ],
-          },
-        }),
+    const input = {
+      projectRef: project.ref,
+      title: "Implement",
+      description: "Implement the change",
+      artifactRefs: ["artifact:primary" as ArtifactRef],
+      executionPolicy: normalizeTaskExecutionPolicy({
+        worktreeTarget: {
+          primaryArtifactRef: "artifact:primary" as ArtifactRef,
+          writableArtifactRefs: [
+            "artifact:primary" as ArtifactRef,
+            "artifact:unlinked" as ArtifactRef,
+          ],
+        },
       }),
+    };
+    const before = structuredClone(graph.snapshot());
+    expect(() =>
+      mode === "create" ? graph.createTask(input) : graph.ensureTask(newRef("task"), input),
     ).toThrow("artifact:unlinked must be linked in artifactRefs");
+    expect(graph.snapshot()).toEqual(before);
   });
 });

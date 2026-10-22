@@ -49,7 +49,10 @@ import type {
   ToolResultMessage,
   UserMessage,
 } from "@zendev-lab/spark-llm-providers";
-import { MODEL_EMPTY_RESPONSE_ERROR_CODE } from "@zendev-lab/spark-llm-providers";
+import {
+  MODEL_EMPTY_RESPONSE_ERROR_CODE,
+  normalizeProviderJsonObject,
+} from "@zendev-lab/spark-llm-providers";
 
 export type {
   AssistantMessage,
@@ -362,7 +365,7 @@ function isSparkCompactionSummaryMessage(message: Message): boolean {
 }
 
 function estimateProviderMessageTokens(message: Message): number {
-  if (message.role === "user" || message.role === "toolResult") {
+  if (message.role !== "assistant") {
     return estimateProviderContentTokens(message.content);
   }
   let chars = 0;
@@ -1609,6 +1612,9 @@ export class SparkAgentLoop {
     signal: AbortSignal,
   ): Promise<ToolResultMessage> {
     try {
+      if (toolCall.argumentsError) {
+        return errorToolResult(toolCall, toolCall.argumentsError);
+      }
       const tool = this.host.getTool(toolCall.name);
       if (!tool) {
         return errorToolResult(toolCall, `unknown tool: ${toolCall.name}`);
@@ -2036,7 +2042,7 @@ export class SparkAgentLoop {
         type: "toolCall",
         id: callId,
         name,
-        arguments: { ...args },
+        arguments: normalizeProviderJsonObject(args),
       },
       `Tool "${name}" requires approval before execution.`,
       signal,

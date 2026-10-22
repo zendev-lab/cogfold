@@ -46,7 +46,7 @@ describe("TaskGraph dependency replacement", () => {
     ["self", undefined, "task_dependency_self_edge"],
   ] as const)("rejects %s without changing the graph", (_label, dependency, code) => {
     const { graph, first, target } = fixture();
-    const before = graph.snapshot();
+    const before = structuredClone(graph.snapshot());
     expect(() =>
       graph.replaceTaskDependencies(target.ref, [dependency ?? target.ref]),
     ).toThrowError(expect.objectContaining({ reasonCode: code }));
@@ -75,7 +75,7 @@ describe("TaskGraph dependency replacement", () => {
       [outsider.ref, "task_dependency_cross_project"],
       [second.ref, "task_dependency_cycle"],
     ] as const) {
-      const before = graph.snapshot();
+      const before = structuredClone(graph.snapshot());
       expect(() => graph.replaceTaskDependencies(target.ref, [dependency])).toThrowError(
         expect.objectContaining({ reasonCode: code }),
       );

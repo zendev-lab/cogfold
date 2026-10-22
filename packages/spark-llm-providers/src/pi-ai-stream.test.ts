@@ -166,3 +166,70 @@ test("an empty pi-ai iterator does not throw while converting to chunks", async 
   }
   assert.deepEqual(chunks, []);
 });
+
+test("completed DSH tool calls preserve JSON arguments and malformed-argument errors", async () => {
+  for (const raw of ['{"nested":[null,true,{"value":3}]}', '{"ok":1,"broken":']) {
+    const chunks: StreamChunk[] = [
+      {
+        type: "block-end",
+        index: 0,
+        block: {
+          type: "tool-call",
+          id: "call-1" as import("@deepseek-ai/dsh-llm").ToolCallId,
+          name: "echo",
+          arguments: raw,
+        },
+      },
+      { type: "finish", reason: { kind: "tool-calls" } },
+    ];
+    const stream = llmChunksToPiAiStream(
+      (async function* () {
+        yield* chunks;
+      })(),
+      MODEL,
+    );
+    const events: AssistantMessageEvent[] = [];
+    for await (const event of stream) events.push(event);
+    const completed = events.find((event) => event.type === "toolcall_end");
+    assert.ok(completed);
+    const final = (await stream.result()).content.find((part) => part.type === "toolCall");
+    assert.deepEqual(completed.toolCall, final);
+    if (raw.endsWith("}")) {
+      assert.deepEqual(final?.arguments, { nested: [null, true, { value: 3 }] });
+      assert.equal(final?.argumentsError, undefined);
+    } else {
+      assert.deepEqual(final?.arguments, {});
+      assert.ok(final?.argumentsError);
+    }
+  }
+});
+
+test("pi-ai argument errors stay invalid on the DSH tool-call boundary", async () => {
+  const toolCall = {
+    type: "toolCall" as const,
+    id: "bad-call",
+    name: "echo",
+    arguments: {},
+    argumentsError: "Malformed tool arguments: {broken",
+  };
+  const message: AssistantMessage = {
+    ...assistant(""),
+    content: [toolCall],
+    stopReason: "toolUse",
+  };
+  const direct = piEventToLlmChunks({
+    type: "toolcall_end",
+    contentIndex: 0,
+    toolCall,
+    partial: message,
+  });
+  const fallback: StreamChunk[] = [];
+  for await (const chunk of piEventsToLlmChunks(piStream([], message))) fallback.push(chunk);
+  for (const chunks of [direct, fallback]) {
+    const end = chunks.find(
+      (chunk) => chunk.type === "block-end" && chunk.block.type === "tool-call",
+    );
+    assert.ok(end?.type === "block-end" && end.block.type === "tool-call");
+    assert.equal(JSON.parse(end.block.arguments), toolCall.argumentsError);
+  }
+});

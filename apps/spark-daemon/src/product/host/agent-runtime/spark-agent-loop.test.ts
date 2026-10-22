@@ -317,6 +317,14 @@ test("provider Context meter accepts usage from a turn completed after compactio
   assert.ok(estimate.tokens >= 321);
 });
 
+test("provider Context meter counts pi-ai system messages", () => {
+  const estimate = estimateSparkProviderContextTokens({
+    messages: [{ role: "system", content: "abcdefgh", timestamp: 0 }],
+  });
+  assert.equal(estimate.messageTokens, 2);
+  assert.equal(estimate.tokens, 2);
+});
+
 test("provider output budget clamps to the assembled context boundary", () => {
   assert.equal(resolveSparkProviderOutputTokens(4_000, 8_000, 4_000), 4_000);
   assert.equal(resolveSparkProviderOutputTokens(4_001, 8_000, 4_000), 3_999);
@@ -1655,6 +1663,106 @@ test("SparkAgentLoop dispatches tool calls and feeds tool results back into the 
     ),
     true,
   );
+});
+
+test("SparkAgentLoop reports unserializable tool details without dropping the result or replaying execution", async () => {
+  const cyclic: Record<string, unknown> = {};
+  cyclic.self = cyclic;
+  for (const details of [{ value: 1n }, cyclic]) {
+    const host = new SparkHostRuntime({ cwd: "/tmp/spark-tool-json-boundary" });
+    let executions = 0;
+    host.registerTool({
+      name: "invalid_details",
+      description: "Return details that cannot be sent to the provider",
+      parameters: { type: "object" },
+      async execute() {
+        executions += 1;
+        return { content: [{ type: "text", text: "executed" }], details };
+      },
+    });
+    const toolAssistant = buildAssistant(
+      [
+        {
+          type: "toolCall",
+          id: "invalid-details",
+          name: "invalid_details",
+          arguments: {},
+        },
+      ],
+      "toolUse",
+    );
+    const finalAssistant = buildAssistant([{ type: "text", text: "received tool error" }]);
+    const loop = new SparkAgentLoop({
+      host,
+      llm: asSparkTurnLlm(
+        makeFakeStream({
+          rounds: [
+            [{ type: "done", reason: "toolUse", message: toolAssistant }],
+            [{ type: "done", reason: "stop", message: finalAssistant }],
+          ],
+        }),
+      ),
+      getModel: () => TEST_MODEL,
+    });
+    await loop.submit("run once");
+    const results = loop.getMessages().filter((message) => message.role === "toolResult");
+    assert.equal(results.length, 1);
+    const result = results[0];
+    assert.ok(result);
+    assert.equal(result.toolCallId, "invalid-details");
+    assert.equal(result.isError, true);
+    assert.equal(result.details, undefined);
+    assert.equal(executions, 1);
+    assert.equal(loop.getState(), "idle");
+  }
+});
+
+test("SparkAgentLoop rejects malformed provider arguments in streamed and resumed tool calls", async () => {
+  for (const resume of [false, true]) {
+    const host = new SparkHostRuntime({ cwd: "/tmp/spark-malformed-provider-arguments" });
+    let executions = 0;
+    host.registerTool({
+      name: "must_not_execute",
+      description: "Tool accepting an empty object",
+      parameters: { type: "object" },
+      async execute() {
+        executions += 1;
+        return { content: [{ type: "text", text: "unexpected execution" }] };
+      },
+    });
+    const call: ToolCall = {
+      type: "toolCall",
+      id: "invalid-args",
+      name: "must_not_execute",
+      arguments: {},
+      argumentsError: "Malformed tool arguments: incomplete JSON object",
+    };
+    const toolAssistant = buildAssistant([call], "toolUse");
+    const finalAssistant = buildAssistant([{ type: "text", text: "received argument error" }]);
+    const rounds: AssistantMessageEvent[][] = [
+      [{ type: "done", reason: "stop", message: finalAssistant }],
+    ];
+    if (!resume) rounds.unshift([{ type: "done", reason: "toolUse", message: toolAssistant }]);
+    const loop = new SparkAgentLoop({
+      host,
+      llm: asSparkTurnLlm(makeFakeStream({ rounds })),
+      getModel: () => TEST_MODEL,
+    });
+    if (resume) {
+      loop.replacePromptItems([sparkPromptItemFromProviderMessage({ ...toolAssistant })]);
+      await loop.resumeToolCallsWithOutcome([call]);
+    } else {
+      await loop.submit("attempt the malformed call");
+    }
+    const results = loop.getMessages().filter((message) => message.role === "toolResult");
+    assert.equal(results.length, 1);
+    const result = results[0];
+    assert.ok(result, `missing result for resume=${resume}`);
+    assert.equal(result.toolCallId, call.id);
+    assert.equal(result.isError, true);
+    assert.equal(executions, 0);
+    assert.equal(loop.getState(), "idle");
+  }
 });
 
 test("SparkAgentLoop yields before tool dispatch and resumes the exact calls once", async () => {
