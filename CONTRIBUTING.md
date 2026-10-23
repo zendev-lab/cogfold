@@ -20,8 +20,8 @@ Run `prek install` when Git hooks are missing from an existing checkout.
 ## Setup
 
 ```bash
-git clone https://github.com/zendev-lab/cogfold.git
-cd cogfold
+git clone https://github.com/zendev-lab/ulota.git
+cd ulota
 pnpm install
 pnpm run check
 ```

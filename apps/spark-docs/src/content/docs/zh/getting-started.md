@@ -17,7 +17,7 @@ Spark 当前要求 Node.js `>=24` 和 npm。`@zendev-lab/spark` 是完整产品�
 验证 release SHA-256，再由该精确版本的 native CLI 安装匹配的 managed npm 载荷：
 
 ```bash
-curl -fsSL https://github.com/zendev-lab/spark/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/zendev-lab/ulota/releases/latest/download/install.sh | sh
 spark version --json
 spark update status --json
 ```
@@ -25,7 +25,7 @@ spark update status --json
 稳定入口默认安装到 `~/.local/bin/spark`。需要其他位置时传入绝对 prefix：
 
 ```bash
-curl -fsSL https://github.com/zendev-lab/spark/releases/latest/download/install.sh \
+curl -fsSL https://github.com/zendev-lab/ulota/releases/latest/download/install.sh \
   | sh -s -- --prefix /opt/spark
 ```
 

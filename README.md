@@ -26,7 +26,7 @@ recommended direct native entry; it installs the exact managed npm payload and
 keeps atomic upgrades and rollback:
 
 ```bash
-curl -fsSL https://github.com/zendev-lab/cogfold/releases/latest/download/install.sh | sh
+curl -fsSL https://github.com/zendev-lab/ulota/releases/latest/download/install.sh | sh
 spark doctor
 spark
 ```

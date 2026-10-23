@@ -20,13 +20,13 @@ export default defineConfig({
         "Install, operate, and understand Ulota across its CLI, local web workbench, daemon, and Hub surfaces.",
       favicon: "/spark.svg",
       editLink: {
-        baseUrl: "https://github.com/zendev-lab/cogfold/edit/main/apps/spark-docs/",
+        baseUrl: "https://github.com/zendev-lab/ulota/edit/main/apps/spark-docs/",
       },
       social: [
         {
           icon: "github",
           label: "GitHub",
-          href: "https://github.com/zendev-lab/cogfold",
+          href: "https://github.com/zendev-lab/ulota",
         },
       ],
       locales: {

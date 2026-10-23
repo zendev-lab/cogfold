@@ -8,15 +8,15 @@
     "Coding Agent",
     "Ulota"
   ],
-  "homepage": "https://github.com/zendev-lab/cogfold#readme",
+  "homepage": "https://github.com/zendev-lab/ulota#readme",
   "bugs": {
-    "url": "https://github.com/zendev-lab/cogfold/issues"
+    "url": "https://github.com/zendev-lab/ulota/issues"
   },
   "license": "MIT",
   "author": "zrr1999",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/zendev-lab/cogfold.git"
+    "url": "git+https://github.com/zendev-lab/ulota.git"
   },
   "bin": {
     "spark": "./apps/spark-cli/bin/spark"
