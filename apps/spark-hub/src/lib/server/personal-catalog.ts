@@ -1,9 +1,12 @@
 import { executeSubscription } from "@zendev-lab/ulota-subscriptions";
-import { personalSubscriptionSchema } from "@zendev-lab/spark-protocol";
 import { executePersonalTodo } from "@zendev-lab/ulota-personal-todos";
-import { personalTodoSchema } from "@zendev-lab/spark-protocol";
 import { executeInventory } from "@zendev-lab/ulota-inventory";
-import { inventoryItemSchema, type PersonalCapability } from "@zendev-lab/spark-protocol";
+import {
+  inventoryItemSchema,
+  personalTodoSchema,
+  personalSubscriptionSchema,
+  type PersonalCapability,
+} from "@zendev-lab/spark-protocol";
 import {
   createPersonalRecordRepository,
   withPersonalOperation,

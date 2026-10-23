@@ -1,5 +1,5 @@
 import { beforeEach, afterEach, expect, it, vi } from "vitest";
-import { migrate, openMemoryDatabase } from "@zendev-lab/spark-hub-storage-sqlite";
+import { createPersonalTestDatabase } from "./test-support/personal-fixture.ts";
 import { setPersonalCapability } from "@zendev-lab/spark-hub-coordination/personal";
 import { personalSubscriptionSchema } from "@zendev-lab/spark-protocol";
 const state = vi.hoisted(() => ({ db: undefined as unknown }));
@@ -9,19 +9,12 @@ import {
   subscriptionRepositoryForUser,
 } from "./personal-catalog.ts";
 import { subscriptionSnapshot } from "@zendev-lab/ulota-subscriptions";
-let db: ReturnType<typeof openMemoryDatabase>;
+let db: ReturnType<typeof createPersonalTestDatabase>;
 beforeEach(() => {
-  db = openMemoryDatabase();
-  migrate(db);
+  db = createPersonalTestDatabase(["subscriptions"]);
   state.db = db;
-  const now = new Date().toISOString();
-  for (const id of ["alice", "bob"]) {
-    db.prepare(
-      "INSERT INTO users (id,display_name,role,status,created_at,updated_at) VALUES (?,?,'owner','active',?,?)",
-    ).run(id, id, now, now);
-    setPersonalCapability(db, id, "subscriptions", true);
-  }
 });
+
 afterEach(() => db.close());
 function call(
   action: string,
