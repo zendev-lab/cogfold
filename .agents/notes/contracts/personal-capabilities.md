@@ -37,3 +37,5 @@ its request-bound receipt in one transaction, so repeating an identical operatio
 returns its previous result and changing its payload conflicts. Inventory retains
 BoneHub's filtered purchase-cost and calendar-month statistics; no currency is
 inferred from locale.
+
+Import packages use `ulota.personal.bonehub` version 1. Export opens explicit source paths read-only in SQLite read transactions, including committed WAL; no source migration runs. Legacy IDs map per user and capability. Apply validates all pending relations before the first write and commits records, mappings and operation receipt in one transaction. Re-import never overwrites a mapped Hub target; changed sources and missing targets are reported. No automatic import, database deletion, iCloud migration or legacy AI adoption occurs.
