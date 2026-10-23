@@ -31,8 +31,8 @@ export const load: PageServerLoad = ({ locals, url }) => {
 };
 export const actions: Actions = {
   save: async ({ locals, request }) => {
-    const userId = requirePersonalUser(locals.sessionToken);
     const form = await request.formData();
+    const userId = requirePersonalUser(locals.sessionToken);
     const values = Object.fromEntries(
       [...form.entries()].filter(
         (entry): entry is [string, string] => typeof entry[1] === "string",
@@ -69,8 +69,8 @@ export const actions: Actions = {
     }
   },
   delete: async ({ locals, request }) => {
-    const userId = requirePersonalUser(locals.sessionToken);
     const form = await request.formData();
+    const userId = requirePersonalUser(locals.sessionToken);
     try {
       executeHostedPersonalCapability(userId, "todos", {
         action: "delete",

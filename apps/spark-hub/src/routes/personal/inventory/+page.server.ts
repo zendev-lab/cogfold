@@ -23,7 +23,9 @@ export const load: PageServerLoad = ({ locals, url }) => {
     return {
       ...snapshot,
       selected,
-      allTags: [...new Set(repository.list().flatMap((item) => item.tags))].sort(),
+      allTags: [...new Set(repository.list().flatMap((item) => item.tags))].sort((a, b) =>
+        a.localeCompare(b),
+      ),
       today: new Date().toISOString().slice(0, 10),
       operationId: randomUUID(),
       deleteOperations: Object.fromEntries(snapshot.items.map((item) => [item.id, randomUUID()])),
@@ -41,8 +43,8 @@ function failure(caught: unknown, values: Record<string, string>) {
 }
 export const actions: Actions = {
   save: async ({ locals, request }) => {
-    const userId = requirePersonalUser(locals.sessionToken);
     const form = await request.formData();
+    const userId = requirePersonalUser(locals.sessionToken);
     const values = Object.fromEntries(
       [...form.entries()].filter(
         (entry): entry is [string, string] => typeof entry[1] === "string",
@@ -80,8 +82,8 @@ export const actions: Actions = {
     }
   },
   delete: async ({ locals, request }) => {
-    const userId = requirePersonalUser(locals.sessionToken);
     const form = await request.formData();
+    const userId = requirePersonalUser(locals.sessionToken);
     try {
       executeHostedPersonalCapability(userId, "inventory", {
         action: "delete",

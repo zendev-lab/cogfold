@@ -20,10 +20,15 @@ export function personalError(caught: unknown): never {
     });
   }
   if (caught instanceof Error && "code" in caught) {
-    if (caught.code === "conflict") error(409, { message: caught.message, code: "conflict" });
-    if (caught.code === "not_found") error(404, { message: caught.message, code: "not_found" });
-    if (caught.code === "invalid_input" || caught.code === "invalid_relation")
-      error(422, { message: caught.message, code: String(caught.code) });
+    const statuses = new Map<string, number>([
+      ["conflict", 409],
+      ["not_found", 404],
+      ["invalid_input", 422],
+      ["invalid_relation", 422],
+    ]);
+    const code = String(caught.code);
+    const status = statuses.get(code);
+    if (status) error(status, { message: caught.message, code });
   }
   if (caught instanceof Error && caught.name === "ZodError")
     error(400, { message: "Personal tool input is invalid.", code: "invalid_input" });

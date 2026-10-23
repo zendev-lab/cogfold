@@ -257,3 +257,49 @@ it("maps disabled capabilities and malformed page filters to recoverable HTTP er
     expect.objectContaining({ status: 400 }),
   );
 });
+it("rechecks browser authorization after reading an asynchronous request body", async () => {
+  const { createOwnerSession } = await import("./auth.ts");
+  const { POST } = await import("../../routes/api/v1/personal/[capability]/+server.ts");
+  const { actions } = await import("../../routes/personal/inventory/+page.server.ts");
+  db.prepare("UPDATE users SET role='member'").run();
+  const owner = createOwnerSession(db, "Owner", null);
+  setPersonalCapability(db, owner.userId, "inventory", true);
+  const revoke = () =>
+    db
+      .prepare("UPDATE sessions SET revoked_at=? WHERE id=?")
+      .run(new Date().toISOString(), owner.sessionId);
+  await expect(
+    POST({
+      locals: { sessionToken: owner.sessionToken },
+      params: { capability: "inventory" },
+      request: {
+        json: async () => {
+          revoke();
+          return { action: "create", input, operationId: "late-api" };
+        },
+      },
+    } as never),
+  ).rejects.toMatchObject({ status: 401 });
+  db.prepare("UPDATE sessions SET revoked_at=NULL WHERE id=?").run(owner.sessionId);
+  const form = new FormData();
+  for (const [key, value] of Object.entries({
+    name: "Late",
+    status: "Active",
+    purchase_date: "2026-01-01",
+    purchase_price: "1",
+    operationId: "late-form",
+  }))
+    form.set(key, value);
+  await expect(
+    actions.save!({
+      locals: { sessionToken: owner.sessionToken },
+      request: {
+        formData: async () => {
+          revoke();
+          return form;
+        },
+      },
+    } as never),
+  ).rejects.toMatchObject({ status: 401 });
+  expect(inventoryRepositoryForUser(owner.userId).list()).toHaveLength(0);
+});
