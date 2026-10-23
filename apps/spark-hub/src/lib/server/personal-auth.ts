@@ -19,6 +19,14 @@ export function personalError(caught: unknown): never {
       code: caught.code,
     });
   }
+  if (caught instanceof Error && "code" in caught) {
+    if (caught.code === "conflict") error(409, { message: caught.message, code: "conflict" });
+    if (caught.code === "not_found") error(404, { message: caught.message, code: "not_found" });
+    if (caught.code === "invalid_input" || caught.code === "invalid_relation")
+      error(422, { message: caught.message, code: String(caught.code) });
+  }
+  if (caught instanceof Error && caught.name === "ZodError")
+    error(400, { message: "Personal tool input is invalid.", code: "invalid_input" });
   throw caught;
 }
 
