@@ -21,7 +21,7 @@ export const load: PageServerLoad = ({ locals, url }) => {
       selected: repository.get(url.searchParams.get("edit") ?? ""),
       categories: [...new Set(repository.list().map((item) => item.category))]
         .filter(Boolean)
-        .sort(),
+        .sort((a, b) => a.localeCompare(b)),
       today: new Date().toISOString().slice(0, 10),
       operationId: randomUUID(),
       recordOperations: Object.fromEntries(
@@ -45,8 +45,8 @@ async function operation(
   event: Parameters<NonNullable<Actions[string]>>[0],
   action: "delete" | "renew" | "cancel",
 ) {
-  const userId = requirePersonalUser(event.locals.sessionToken);
   const form = await event.request.formData();
+  const userId = requirePersonalUser(event.locals.sessionToken);
   try {
     executeHostedPersonalCapability(userId, "subscriptions", {
       action,
@@ -60,8 +60,8 @@ async function operation(
 }
 export const actions: Actions = {
   save: async ({ locals, request }) => {
-    const userId = requirePersonalUser(locals.sessionToken);
     const form = await request.formData();
+    const userId = requirePersonalUser(locals.sessionToken);
     const values = Object.fromEntries(
       [...form.entries()].filter(
         (entry): entry is [string, string] => typeof entry[1] === "string",
