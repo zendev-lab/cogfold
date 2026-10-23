@@ -37,6 +37,7 @@ describe("SparkCommand vocabulary", () => {
       "daemon.status",
       "daemon.stop",
       "daemon.restart",
+      "daemon.personal",
       "daemon.access.create",
       "daemon.access.list",
       "daemon.access.revoke",
