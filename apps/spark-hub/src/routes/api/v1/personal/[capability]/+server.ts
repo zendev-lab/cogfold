@@ -21,9 +21,9 @@ export const GET: RequestHandler = ({ locals, params }) => {
   }
 };
 export const POST: RequestHandler = async ({ locals, params, request }) => {
-  const userId = requirePersonalUser(locals.sessionToken);
   const capability = personalCapabilitySchema.safeParse(params.capability);
   const input = personalWebOperationSchema.safeParse(await request.json().catch(() => undefined));
+  const userId = requirePersonalUser(locals.sessionToken);
   if (!capability.success) error(404, "Personal tool not found.");
   if (!input.success) error(400, "Invalid personal operation.");
   try {
