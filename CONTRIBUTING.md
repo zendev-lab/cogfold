@@ -54,6 +54,12 @@ For the current package dependency model, read
 For command and state ownership, read
 [`.agents/notes/contracts/command-planes.md`](./.agents/notes/contracts/command-planes.md).
 
+The [interactive code map](./docs/codemap/README.md) links module responsibilities
+and representative workflows to source evidence. Its standalone HTML, data, and
+integrity lock are checked-in source artifacts; the map's generator owns the
+matching public documentation assets. Local browser and performance results
+remain outside the repository.
+
 ## Choose the owner before changing code
 
 Every stateful domain has one authoritative owner. Put behavior in that owner
